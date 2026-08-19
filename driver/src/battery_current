@@ -1,0 +1,165 @@
+/******************************************************************************
+ * File: battery_current.c
+ *
+ * Battery Current Driver
+ *
+ * Responsibilities:
+ *     - Initialize ADC for battery current
+ *     - Read raw ADC value
+ *     - Convert ADC value to voltage
+ *     - Convert voltage to current
+ *
+ * Hardware configuration:
+ *     BATT_CURR_CHANNEL is defined in hardware_config.h
+ *
+ * Parameters:
+ *     ADC reference voltage
+ *     ADC maximum count
+ *     Maximum measurable current
+ *     Noise threshold
+ *
+ *     are defined in ecu_parameters.h
+ ******************************************************************************/
+
+#include <xc.h>
+#include <stdint.h>
+
+#include "config.h"
+#include "ecu_parameters.h"
+#include "battery_current.h"
+
+
+/*==========================================================
+ * INITIALIZATION
+ *==========================================================*/
+
+void BatteryCurrent_Init(void)
+{
+    /*
+     * ADC result right justified.
+     */
+    ADCON1 = 0x80;
+
+    /*
+     * Select battery-current ADC channel.
+     */
+    ADCON0bits.CHS = BATT_CURR_CHANNEL;
+
+    /*
+     * Enable ADC.
+     */
+    ADCON0bits.ADON = 1;
+}
+
+
+/*==========================================================
+ * READ RAW ADC
+ *==========================================================*/
+
+uint16_t BatteryCurrent_ReadADC(void)
+{
+    uint16_t adcValue;
+
+    /*
+     * Select battery-current channel.
+     */
+    ADCON0bits.CHS = BATT_CURR_CHANNEL;
+
+    /*
+     * Acquisition time.
+     */
+    __delay_us(20);
+
+    /*
+     * Start ADC conversion.
+     */
+    GO_nDONE = 1;
+
+    /*
+     * Wait until conversion completes.
+     */
+    while(GO_nDONE)
+    {
+        /* Wait */
+    }
+
+    /*
+     * Read 10-bit ADC result.
+     */
+    adcValue =
+        ((uint16_t)ADRESH << 8) |
+        ADRESL;
+
+    return adcValue;
+}
+
+
+/*==========================================================
+ * READ SENSOR VOLTAGE
+ *==========================================================*/
+
+float BatteryCurrent_ReadVoltage(void)
+{
+    uint16_t adcValue;
+    float voltage;
+
+    /*
+     * Read ADC.
+     */
+    adcValue = BatteryCurrent_ReadADC();
+
+    /*
+     * ADC to voltage:
+     *
+     * Voltage =
+     * ADC × Reference Voltage / Maximum ADC Count
+     */
+    voltage =
+        ((float)adcValue *
+         BATTERY_CURRENT_ADC_REF_VOLTAGE)
+        /
+        BATTERY_CURRENT_ADC_MAX_COUNT;
+
+    return voltage;
+}
+
+
+/*==========================================================
+ * READ CURRENT
+ *==========================================================*/
+
+float BatteryCurrent_ReadCurrent(void)
+{
+    float voltage;
+    float current;
+
+    /*
+     * Read sensor voltage.
+     */
+    voltage = BatteryCurrent_ReadVoltage();
+
+    /*
+     * Existing sensor relationship:
+     *
+     * 0.0 V = 0 A
+     * 3.3 V = 25 A
+     *
+     * Current =
+     * Voltage × Maximum Current / Reference Voltage
+     */
+    current =
+        (voltage *
+         BATTERY_CURRENT_MAX)
+        /
+        BATTERY_CURRENT_ADC_REF_VOLTAGE;
+
+    /*
+     * Remove very small noise.
+     */
+    if(current < BATTERY_CURRENT_NOISE_THRESHOLD)
+    {
+        current = 0.0f;
+    }
+
+    return current;
+}
