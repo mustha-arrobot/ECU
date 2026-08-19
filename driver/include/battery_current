@@ -1,0 +1,16 @@
+#ifndef ECU_PARAMETERS_H
+#define ECU_PARAMETERS_H
+
+/*==========================================================
+ * BATTERY CURRENT PARAMETERS
+ *==========================================================*/
+
+#define BATTERY_CURRENT_ADC_REF_VOLTAGE     3.3f
+
+#define BATTERY_CURRENT_ADC_MAX_COUNT       1023.0f
+
+#define BATTERY_CURRENT_MAX                 25.0f
+
+#define BATTERY_CURRENT_NOISE_THRESHOLD     0.10f
+
+#endif /* ECU_PARAMETERS_H */
